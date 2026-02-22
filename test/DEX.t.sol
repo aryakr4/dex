@@ -46,4 +46,74 @@ contract DEXTest is Test {
         vm.expectRevert("Factory: IDENTICAL_ADDRESSES");
         factory.createPair(address(tokenA), address(tokenA));
     }
+
+    function testPairMintFirstLiquidity() public {
+        Factory f = new Factory();
+        address pair = f.createPair(address(tokenA), address(tokenB));
+
+        // Transfer tokens directly to pair (simulating what Router does)
+        tokenA.mint(address(pair), 100e18);
+        tokenB.mint(address(pair), 100e18);
+
+        uint256 lp = Pair(pair).mint(alice);
+
+        assertGt(lp, 0, "No LP tokens minted");
+        assertEq(Pair(pair).balanceOf(alice), lp);
+
+        (uint112 r0, uint112 r1) = Pair(pair).getReserves();
+        assertEq(r0, 100e18);
+        assertEq(r1, 100e18);
+    }
+
+    function testPairBurn() public {
+        Factory f = new Factory();
+        address pair = f.createPair(address(tokenA), address(tokenB));
+
+        tokenA.mint(address(pair), 100e18);
+        tokenB.mint(address(pair), 100e18);
+        uint256 lp = Pair(pair).mint(alice);
+
+        // Transfer LP tokens to pair for burning
+        vm.prank(alice);
+        Pair(pair).transfer(address(pair), lp);
+
+        (uint256 a0, uint256 a1) = Pair(pair).burn(alice);
+
+        assertGt(a0, 0);
+        assertGt(a1, 0);
+        assertEq(Pair(pair).balanceOf(alice), 0);
+    }
+
+    function testPairSwap() public {
+        Factory f = new Factory();
+        address pair = f.createPair(address(tokenA), address(tokenB));
+
+        // Add 100k of each token as liquidity
+        tokenA.mint(address(pair), 100_000e18);
+        tokenB.mint(address(pair), 100_000e18);
+        Pair(pair).mint(alice);
+
+        // Determine which reserve belongs to tokenA (the input token)
+        bool tokenAIsToken0 = Pair(pair).token0() == address(tokenA);
+        (uint112 r0, uint112 r1) = Pair(pair).getReserves();
+        (uint256 reserveIn, uint256 reserveOut) = tokenAIsToken0
+            ? (uint256(r0), uint256(r1))
+            : (uint256(r1), uint256(r0));
+
+        uint256 amountIn = 1000e18;
+        uint256 amountInWithFee = amountIn * 997;
+        uint256 expected = (amountInWithFee * reserveOut) / (reserveIn * 1000 + amountInWithFee);
+
+        // Send tokenA to pair, get tokenB out
+        tokenA.mint(address(pair), amountIn);
+
+        uint256 balBefore = tokenB.balanceOf(alice);
+        // Route output to the correct slot based on actual token ordering
+        (uint256 amount0Out, uint256 amount1Out) = tokenAIsToken0
+            ? (uint256(0), expected)
+            : (expected, uint256(0));
+        Pair(pair).swap(amount0Out, amount1Out, alice);
+
+        assertEq(tokenB.balanceOf(alice) - balBefore, expected);
+    }
 }
