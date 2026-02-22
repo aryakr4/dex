@@ -64,6 +64,17 @@ All tests live in `test/DEX.t.sol` in one contract `DEXTest`. setUp() deploys fa
 
 Groups: MockERC20 · Factory · Pair (direct) · Router integration · Invariant · Multi-hop
 
+## Repository
+
+- **GitHub**: https://github.com/aryakr4/dex
+- **Remote**: `origin` → `https://github.com/aryakr4/dex.git`
+- **Branch**: `master`
+- **Git email**: aryakrish4@gmail.com
+
+```bash
+git push origin master   # push latest commits
+```
+
 ## Deployment
 
 Requires `.env` with `PRIVATE_KEY`, `BASE_SEPOLIA_RPC_URL`, `BASESCAN_API_KEY`.
